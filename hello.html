@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Job Tracker</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --glass-bg: rgba(255, 255, 255, 0.08);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            --open-color: rgba(219, 149, 254, 0.15);
+            --ongoing-color: rgba(112, 234, 250, 0.15);
+            --finished-color: rgba(100, 100, 100, 0.15);
+            --text-primary: rgba(255, 255, 255, 0.9);
+        }
+
+        body {
+            background: radial-gradient(circle at center, #1e1e1e 0%, #121212 100%);
+            color: var(--text-primary);
+            font-family: 'SF Pro Display', -apple-system, sans-serif;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .status-column {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            border-radius: 18px;
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--glass-shadow);
+            padding: 0;
+            height: calc(100vh - 280px);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .status-column-section {
+            padding: 20px;
+        }
+
+        .status-column::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .status-column::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+        }
+
+        .status-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .status-title {
+            font-weight: 600;
+            font-size: 1.1em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .count {
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 4px 10px;
+            font-size: 0.8em;
+        }
+
+        .open { background: var(--open-color); }
+        .ongoing { background: var(--ongoing-color); }
+        .finished { background: var(--finished-color); }
+
+        .application-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255,255,255,0.03);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .application-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+        }
+
+        .card-content {
+            flex: 1;
+        }
+
+        .company-name {
+            font-weight: 600;
+            font-size: 1em;
+            margin-bottom: 4px;
+        }
+
+        .position {
+            font-size: 0.85em;
+            opacity: 0.8;
+            margin-bottom: 4px;
+        }
+
+        .deadline {
+            font-size: 0.75em;
+            color: #ff453a;
+            margin-bottom: 0;
+        }
+
+        .date-and-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .date {
+            font-family: 'SF Mono', monospace;
+            font-size: 0.75em;
+            opacity: 0.6;
+            white-space: nowrap;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .action-btn {
+            border: none;
+            border-radius: 8px;
+            padding: 6px 10px;
+            font-size: 0.75em;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            white-space: nowrap;
+        }
+
+        .move-btn {
+            background: rgba(255,255,255,0.1);
+            color: white;
+        }
+
+        .move-btn:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .delete-btn {
+            background: rgba(255, 69, 58, 0.2);
+            color: #ff453a;
+        }
+
+        .delete-btn:hover {
+            background: rgba(255, 69, 58, 0.3);
+        }
+
+        .accept-btn {
+            background: rgba(52, 199, 89, 0.2);
+            color: #34c759;
+        }
+
+        .accept-btn:hover {
+            background: rgba(52, 199, 89, 0.3);
+        }
+
+        .add-new {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: linear-gradient(135deg, #007aff, #0a84ff);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 6px 20px rgba(0, 122, 255, 0.3);
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .add-new:hover {
+            transform: scale(1.1);
+            box-shadow: 0 8px 25px rgba(0, 122, 255, 0.4);
+        }
+
+        .ai-input-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            backdrop-filter: blur(5px);
+        }
+        
+        .ai-input-box {
+            background: #2a2a2a;
+            border-radius: 16px;
+            padding: 25px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        
+        .ai-input-box h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+        
+        .ai-input-box textarea {
+            width: 100%;
+            min-height: 100px;
+            background: #1e1e1e;
+            border: 1px solid #444;
+            color: white;
+            padding: 15px;
+            border-radius: 12px;
+            font-family: inherit;
+            margin-bottom: 15px;
+            resize: none;
+            box-sizing: border-box;
+        }
+
+        .option-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .option-button-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .option-button-group label {
+            font-size: 0.8em;
+            margin-bottom: 5px;
+            opacity: 0.8;
+        }
+
+        .option-buttons-container {
+            display: flex;
+            gap: 5px;
+        }
+
+        .option-btn {
+            flex: 1;
+            background: #1e1e1e;
+            border: 1px solid #444;
+            color: white;
+            padding: 8px;
+            border-radius: 8px;
+            font-size: 0.8em;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        .option-btn.selected {
+            background: #007aff;
+            border-color: #007aff;
+        }
+        
+        .ai-submit-btn {
+            background: linear-gradient(135deg, #4CAF50, #2E7D32);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+            width: 100%;
+        }
+        
+        .ai-submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.3);
+        }
+
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-top: 20px;
+            max-width: 1400px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .stat-card {
+            background: transparent;
+            border-radius: 18px;
+            padding: 20px;
+            height: 200px;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 150px;
+            width: 100%;
+        }
+
+        .status-icon {
+            margin-left: 8px;
+            font-size: 0.9em;
+        }
+
+        .accepted-icon {
+            color: #34c759;
+        }
+
+        .rejected-icon {
+            color: #ff453a;
+        }
+
+        @media (max-width: 1200px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto auto;
+            }
+            .status-column {
+                height: auto;
+                max-height: 400px;
+            }
+            .stats-container {
+                grid-template-columns: 1fr;
+            }
+            .add-new {
+                bottom: 20px;
+                right: 20px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .stats-container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Open Applications Column -->
+        <div class="status-column open">
+            <div class="status-column-section" data-status="open">
+                <div class="status-header">
+                    <div class="status-title">Open</div>
+                    <div class="count">0</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Ongoing Applications Column -->
+        <div class="status-column ongoing">
+            <div class="status-column-section" data-status="ongoing">
+                <div class="status-header">
+                    <div class="status-title">Applied</div>
+                    <div class="count">0</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Finished Applications Column -->
+        <div class="status-column finished">
+            <div class="status-column-section" data-status="finished">
+                <div class="status-header">
+                    <div class="status-title">Complete</div>
+                    <div class="count">0</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Section -->
+    <div class="stats-container">
+        <div class="stat-card">
+            <div class="chart-container">
+                <canvas id="seasonChart"></canvas>
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="chart-container">
+                <canvas id="areaChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <button class="add-new" onclick="showAIInput()">
+        <i class="fas fa-plus"></i>
+    </button>
+
+    <script>
+        // Chart instances
+        let seasonChart = null;
+        let areaChart = null;
+        
+        // Load saved data when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            loadApplications();
+            renderCharts();
+        });
+        
+        // Sample applications data
+        let applications = {
+            open: [],
+            ongoing: [],
+            finished: []
+        };
+
+        // DOM elements
+        const columns = {
+            open: document.querySelector('[data-status="open"]'),
+            ongoing: document.querySelector('[data-status="ongoing"]'),
+            finished: document.querySelector('[data-status="finished"]')
+        };
+
+        // Initialize with sample data if empty
+        function loadApplications() {
+            const savedData = localStorage.getItem('jobApplications');
+            if (savedData) {
+                applications = JSON.parse(savedData);
+            } else {
+                // Sample initial data
+                applications = {
+                    open: [
+                        { 
+                            id: 1, 
+                            company: "Apple", 
+                            position: "Senior iOS Developer", 
+                            season: "Summer 26", 
+                            area: "Tech", 
+                            date: getCurrentDate(),
+                            deadline: "10/15/25"
+                        }
+                    ],
+                    ongoing: [
+                        { 
+                            id: 2, 
+                            company: "Google", 
+                            position: "Machine Learning Engineer", 
+                            season: "Summer 26", 
+                            area: "Tech", 
+                            date: getCurrentDate(),
+                            deadline: "11/01/25"
+                        }
+                    ],
+                    finished: [
+                        { 
+                            id: 3, 
+                            company: "Microsoft", 
+                            position: "Cloud Architect", 
+                            season: "Full Time", 
+                            area: "Tech", 
+                            date: getCurrentDate(),
+                            status: "accepted",
+                            deadline: "09/30/25"
+                        },
+                        { 
+                            id: 4, 
+                            company: "Amazon", 
+                            position: "Backend Developer", 
+                            season: "Summer 26", 
+                            area: "Tech", 
+                            date: getCurrentDate(),
+                            status: "rejected",
+                            deadline: "10/01/25"
+                        }
+                    ]
+                };
+                saveApplications();
+            }
+            renderApplications();
+        }
+
+        // Save to localStorage
+        function saveApplications() {
+            localStorage.setItem('jobApplications', JSON.stringify(applications));
+            updateCounts();
+            renderCharts();
+        }
+
+        // Render all applications
+        function renderApplications() {
+            // Clear all columns
+            Object.values(columns).forEach(column => {
+                const cardsContainer = column;
+                const cards = Array.from(cardsContainer.children).filter(child => !child.classList.contains('status-header'));
+                cards.forEach(card => card.remove());
+            });
+
+            // Render each category
+            Object.entries(applications).forEach(([status, apps]) => {
+                const column = columns[status];
+                if (column) {
+                    if (status === 'finished') {
+                        apps.sort((a, b) => {
+                            if (a.status === 'accepted' && b.status !== 'accepted') return -1;
+                            if (a.status !== 'accepted' && b.status === 'accepted') return 1;
+                            return 0;
+                        });
+                    }
+                    
+                    apps.forEach(app => {
+                        const card = createApplicationCard(app, status);
+                        column.appendChild(card);
+                    });
+                }
+            });
+            updateCounts();
+        }
+
+        // Create an application card element
+        function createApplicationCard(application, status) {
+            const card = document.createElement('div');
+            card.className = 'application-card';
+            card.dataset.id = application.id;
+            
+            let actionButtons = '';
+            let statusIcon = '';
+            let deadlineInfo = '';
+            
+            if (application.deadline) {
+                deadlineInfo = `<div class="deadline">Deadline: ${application.deadline}</div>`;
+            }
+            
+            if (status === 'open') {
+                actionButtons = `
+                    <div class="date-and-actions">
+                        <span class="date">${application.date}</span>
+                        <div class="action-buttons">
+                            <button class="action-btn move-btn" onclick="moveApplication(${application.id}, 'ongoing')">
+                                <i class="fas fa-arrow-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            } else if (status === 'ongoing') {
+                actionButtons = `
+                    <div class="date-and-actions">
+                        <span class="date">${application.date}</span>
+                        <div class="action-buttons">
+                            <button class="action-btn accept-btn" onclick="finishApplication(${application.id}, 'accepted')">
+                                <i class="fas fa-check"></i>
+                            </button>
+                            <button class="action-btn delete-btn" onclick="finishApplication(${application.id}, 'rejected')">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            } else if (status === 'finished') {
+                const iconClass = application.status === 'accepted' ? 'accepted-icon' : 'rejected-icon';
+                const icon = application.status === 'accepted' ? 'fa-check' : 'fa-times';
+                statusIcon = `<i class="fas ${icon} status-icon ${iconClass}"></i>`;
+                
+                actionButtons = `
+                    <div class="date-and-actions">
+                        <span class="date">${application.date}</span>
+                        <div class="action-buttons">
+                            <button class="action-btn delete-btn" onclick="deleteApplication(${application.id})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            card.innerHTML = `
+                <div class="card-content">
+                    <div class="company-name">${application.company} ${statusIcon || ''}</div>
+                    <div class="position">${application.position} • ${application.season}</div>
+                    ${deadlineInfo}
+                </div>
+                ${actionButtons}
+            `;
+            
+            return card;
+        }
+
+        // Move application between columns
+        function moveApplication(id, newStatus) {
+            let appToMove = null;
+            let foundStatus = null;
+            
+            Object.entries(applications).forEach(([status, apps]) => {
+                const index = apps.findIndex(app => app.id === id);
+                if (index !== -1) {
+                    appToMove = apps[index];
+                    foundStatus = status;
+                    apps.splice(index, 1);
+                }
+            });
+            
+            if (appToMove) {
+                applications[newStatus].push(appToMove);
+                saveApplications();
+                renderApplications();
+            }
+        }
+
+        // Finish application (accepted or rejected)
+        function finishApplication(id, status) {
+            let appToMove = null;
+            let foundStatus = null;
+            
+            Object.entries(applications).forEach(([status, apps]) => {
+                const index = apps.findIndex(app => app.id === id);
+                if (index !== -1) {
+                    appToMove = apps[index];
+                    foundStatus = status;
+                    apps.splice(index, 1);
+                }
+            });
+            
+            if (appToMove) {
+                appToMove.status = status;
+                applications.finished.unshift(appToMove);
+                saveApplications();
+                renderApplications();
+            }
+        }
+
+        // Delete application
+        function deleteApplication(id) {
+            Object.entries(applications).forEach(([status, apps]) => {
+                const index = apps.findIndex(app => app.id === id);
+                if (index !== -1) {
+                    apps.splice(index, 1);
+                }
+            });
+            saveApplications();
+            renderApplications();
+        }
+
+        // Update the counts in each column header
+        function updateCounts() {
+            Object.entries(applications).forEach(([status, apps]) => {
+                const column = columns[status];
+                if (column) {
+                    const countElement = column.querySelector('.count');
+                    if (countElement) {
+                        countElement.textContent = apps.length;
+                    }
+                }
+            });
+        }
+
+        // Get current date in MM/DD/YY format
+        function getCurrentDate() {
+            const date = new Date();
+            return date.toLocaleDateString('en-US', { 
+                month: '2-digit', 
+                day: '2-digit', 
+                year: '2-digit' 
+            });
+        }
+
+        // AI Input Modal
+        function showAIInput() {
+            const overlay = document.createElement('div');
+            overlay.className = 'ai-input-overlay';
+            
+            overlay.innerHTML = `
+                <div class="ai-input-box">
+                    <h3>Add New Application</h3>
+                    <textarea id="aiJobInput" placeholder="Company name and position (e.g. 'Amazon SWE')"></textarea>
+                    
+                    <div class="option-buttons">
+                        <div class="option-button-group">
+                            <label>Season</label>
+                            <div class="option-buttons-container">
+                                <div class="option-btn selected" data-value="Summer 26">Summer 26</div>
+                                <div class="option-btn" data-value="Full Time">Full Time</div>
+                            </div>
+                        </div>
+                        
+                        <div class="option-button-group">
+                            <label>Area</label>
+                            <div class="option-buttons-container">
+                                <div class="option-btn selected" data-value="Tech">Tech</div>
+                                <div class="option-btn" data-value="Consulting">Consulting</div>
+                                <div class="option-btn" data-value="FinTech">FinTech</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="option-button-group">
+                        <label>Deadline (optional)</label>
+                        <input type="text" id="deadlineInput" placeholder="MM/DD/YY" class="option-btn" style="text-align: left;">
+                    </div>
+                    
+                    <button class="ai-submit-btn" onclick="processAIInput()">Submit</button>
+                </div>
+            `;
+            
+            document.body.appendChild(overlay);
+            overlay.querySelector('#aiJobInput').focus();
+            
+            // Add click handlers for option buttons
+            overlay.querySelectorAll('.option-btn').forEach(btn => {
+                if (!btn.hasAttribute('data-value')) return;
+                
+                btn.addEventListener('click', function() {
+                    // For season and area buttons
+                    const container = this.parentElement;
+                    container.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
+                    this.classList.add('selected');
+                });
+            });
+            
+            // Close on click outside
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) {
+                    document.body.removeChild(overlay);
+                }
+            });
+        }
+
+        // Process AI input and create application
+        function processAIInput() {
+            const inputText = document.getElementById('aiJobInput').value.trim();
+            if (!inputText) return;
+            
+            const season = document.querySelector('.ai-input-overlay .option-button-group:nth-child(1) .option-btn.selected').dataset.value;
+            const area = document.querySelector('.ai-input-overlay .option-button-group:nth-child(2) .option-btn.selected').dataset.value;
+            const deadline = document.getElementById('deadlineInput').value.trim();
+            
+            // Extract company and position
+            const parts = inputText.split(' ');
+            const company = parts[0];
+            const position = parts.slice(1).join(' ') || area;
+            
+            // Create new application
+            const newApp = {
+                id: Date.now(),
+                company: company,
+                position: position,
+                season: season,
+                area: area,
+                date: getCurrentDate()
+            };
+            
+            // Add deadline if provided
+            if (deadline) {
+                newApp.deadline = deadline;
+            }
+            
+            applications.open.push(newApp);
+            saveApplications();
+            renderApplications();
+            
+            // Close the modal
+            document.querySelector('.ai-input-overlay').remove();
+        }
+
+        // Render charts as column graphs with numbers
+        function renderCharts() {
+            // Destroy existing charts
+            if (seasonChart) seasonChart.destroy();
+            if (areaChart) areaChart.destroy();
+            
+            // Data preparation with updated categories
+            const seasonData = {
+                "Summer 26": 0,
+                "Full Time": 0
+            };
+            
+            const areaData = {
+                "Tech": 0,
+                "Consulting": 0,
+                "FinTech": 0
+            };
+            
+            // Count applications
+            Object.values(applications).flat().forEach(app => {
+                if (seasonData.hasOwnProperty(app.season)) {
+                    seasonData[app.season]++;
+                }
+                if (areaData.hasOwnProperty(app.area)) {
+                    areaData[app.area]++;
+                }
+            });
+            
+            // Season Chart - Column style
+            const seasonCtx = document.getElementById('seasonChart').getContext('2d');
+            seasonChart = new Chart(seasonCtx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(seasonData),
+                    datasets: [{
+                        data: Object.values(seasonData),
+                        backgroundColor: [
+                            'rgba(255, 159, 28, 0.7)',
+                            'rgba(175, 82, 222, 0.7)'
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            enabled: true
+                        },
+                        datalabels: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(255,255,255,0.1)'
+                            },
+                            ticks: {
+                                color: 'rgba(255,255,255,0.7)'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                color: 'rgba(255,255,255,0.7)'
+                            }
+                        }
+                    },
+                    animation: {
+                        duration: 1000
+                    }
+                }
+            });
+            
+            // Area Chart - Column style
+            const areaCtx = document.getElementById('areaChart').getContext('2d');
+            areaChart = new Chart(areaCtx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(areaData),
+                    datasets: [{
+                        data: Object.values(areaData),
+                        backgroundColor: [
+                            'rgba(0, 122, 255, 0.7)',
+                            'rgba(52, 199, 89, 0.7)',
+                            'rgba(255, 69, 58, 0.7)'
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(255,255,255,0.1)'
+                            },
+                            ticks: {
+                                color: 'rgba(255,255,255,0.7)'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                color: 'rgba(255,255,255,0.7)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>

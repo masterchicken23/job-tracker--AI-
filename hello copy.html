@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Job Application Tracker</title>
+    <style>
+        body { background-color: #121212; color: #ffffff; font-family: 'Arial', sans-serif; margin: 0; padding: 20px; }
+        .container { max-width: 1000px; margin: 0 auto; }
+        h1 { text-align: center; margin-bottom: 30px; color: #4CAF50; }
+        .table-container { background-color: #1e1e1e; border-radius: 8px; padding: 20px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #333; }
+        th { background-color: #2c2c2c; color: #4CAF50; font-weight: bold; }
+        tr:hover { background-color: #2a2a2a; }
+        .add-row { background-color: #4CAF50; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 16px; margin-bottom: 20px; }
+        .save-btn { background-color: #2196F3; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        input { background-color: #333; border: 1px solid #444; color: white; padding: 8px; border-radius: 4px; width: 100%; }
+        .delete-btn { background-color: #f44336; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Job Application Tracker</h1>
+        <div class="table-container">
+            <div style="display: flex; justify-content: space-between;">
+                <button class="add-row" onclick="addRow()">+ Add Application</button>
+                <button class="save-btn" onclick="saveTable()">Save Data</button>
+            </div>
+            <table id="applicationTable">
+                <thead>
+                    <tr>
+                        <th>Company Name</th>
+                        <th>Status</th>
+                        <th>Date Applied</th>
+                        <th>Notes</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', loadTable);
+        
+        function addRow(company = '', status = 'Applied', date = '', notes = '') {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><input type="text" value="${company}" placeholder="Company name"></td>
+                <td>
+                    <select style="background-color: #333; color: white; padding: 8px; border-radius: 4px; border: 1px solid #444; width: 100%;">
+                        <option value="Applied" ${status === 'Applied' ? 'selected' : ''}>Applied</option>
+                        <option value="Interview" ${status === 'Interview' ? 'selected' : ''}>Interview Scheduled</option>
+                        <option value="Offer" ${status === 'Offer' ? 'selected' : ''}>Offer Received</option>
+                        <option value="Rejected" ${status === 'Rejected' ? 'selected' : ''}>Rejected</option>
+                    </select>
+                </td>
+                <td><input type="date" value="${date}"></td>
+                <td><input type="text" value="${notes}" placeholder="Additional notes"></td>
+                <td><button class="delete-btn" onclick="this.closest('tr').remove(); saveTable();">Delete</button></td>
+            `;
+            document.getElementById('tableBody').appendChild(row);
+        }
+        
+        function saveTable() {
+            const data = [];
+            document.querySelectorAll('#tableBody tr').forEach(row => {
+                const [company, status, date, notes] = row.querySelectorAll('input, select');
+                data.push({
+                    company: company.value,
+                    status: status.value,
+                    date: date.value,
+                    notes: notes.value
+                });
+            });
+            localStorage.setItem('applicationData', JSON.stringify(data));
+            alert('Data saved!');
+        }
+        
+        function loadTable() {
+            const savedData = localStorage.getItem('applicationData');
+            if (savedData) JSON.parse(savedData).forEach(item => addRow(item.company, item.status, item.date, item.notes));
+            else addRow();
+        }
+    </script>
+</body>
+</html>
